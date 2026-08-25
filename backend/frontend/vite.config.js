@@ -28,6 +28,23 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 650,
+    rollupOptions: {
+      output: {
+        // Split heavy vendors so the landing page paints fast and the
+        // terminal modules load on demand — real-world website behavior.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('@mui') || id.includes('@emotion')) return 'mui'
+          if (id.includes('lightweight-charts')) return 'charting'
+          if (id.includes('recharts') || id.includes('d3-')) return 'graphs'
+          if (id.includes('react-router')) return 'router'
+          return 'vendor'
+        },
+      },
+    },
+  },
   preview: {
     host: '0.0.0.0',
     port: 4173,

@@ -1,0 +1,43 @@
+# Render.com blueprint — https://render.com/deploy
+# Creates one web service (Docker) + a managed PostgreSQL, wired together.
+services:
+  - type: web
+    name: matrix-ai-trader
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: matrix-db
+          property: connectionString
+      - key: CORS_ORIGINS
+        sync: false
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+
+databases:
+  - name: matrix-db
+    plan: free

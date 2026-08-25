@@ -46,6 +46,13 @@ The frontend ships with a **built-in simulated market feed**, so the whole termi
 
 ## Quick Start
 
+### 0 — Docker (production shape, one command)
+
+```bash
+docker build -t matrix-ai-trader . && docker run -p 8000:8000 matrix-ai-trader
+# → http://localhost:8000  (website + API together, like a real deployment)
+```
+
 ### 1 — Frontend (instant demo, no backend needed)
 
 ```bash
@@ -97,6 +104,9 @@ The Vite dev server proxies `/api/*` to `127.0.0.1:8000` out of the box; for dep
 Full reference: [`docs/API.md`](docs/API.md)
 
 ## Roadmap
+
+- [x] Production single-origin serving (FastAPI hosts the built site)
+- [x] Docker + Render blueprint deployment — see [`docs/Deployment.md`](docs/Deployment.md)
 
 - [ ] Swap simulated feed → WebSocket market stream end-to-end
 - [ ] ML model layer beyond indicator heuristics
