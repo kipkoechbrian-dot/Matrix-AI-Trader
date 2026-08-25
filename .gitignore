@@ -2,23 +2,40 @@
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
 
-# Virtual Environment
+# Virtual environments
 venv/
+.venv/
+env/
+
+# Environment & secrets
 .env
+.env.*
+!.env.example
+
+# Secret/config files
+secrets.json
+**/secrets.json
+*.secret
+
+# Private keys & certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
 
 # VS Code
 .vscode/
 
-# macOS
+# OS files
 .DS_Store
+Thumbs.db
 
 # Logs
 logs/
 *.log
-
-# Environment files
-backend/.env
 
 # Node
 node_modules/
@@ -26,6 +43,14 @@ node_modules/
 # Build folders
 dist/
 build/
+.cache/
 
 # Database
 *.db
+*.sqlite
+*.sqlite3
+
+# Testing / coverage
+.coverage
+htmlcov/
+.pytest_cache/
