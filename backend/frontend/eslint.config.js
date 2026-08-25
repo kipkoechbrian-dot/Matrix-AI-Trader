@@ -17,5 +17,15 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // The market engine is an external store: hooks subscribe and
+      // setState from tick callbacks (plus once to sync on mount/symbol
+      // change). The strict v7 rule forbids that pattern, but here it is
+      // the intended integration point — disabled project-wide.
+      'react-hooks/set-state-in-effect': 'off',
+      // Context modules export both the context object and its provider
+      // component by design (React's canonical context pattern).
+      'react-refresh/only-export-components': 'off',
+    },
   },
 ])

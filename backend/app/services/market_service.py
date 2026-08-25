@@ -1,10 +1,16 @@
+import logging
 import os
+
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 API_KEY = os.getenv("TWELVE_DATA_API_KEY")
+
+REQUEST_TIMEOUT = 8  # seconds — never hang a request on a third-party API
 
 
 # Forex symbol conversion
@@ -27,23 +33,27 @@ def normalize_symbol(symbol: str):
     return FOREX_PAIRS.get(symbol.upper(), symbol.upper())
 
 
+def _get(url: str, params: dict):
+    """Small guarded HTTP helper — returns parsed JSON or None."""
+    try:
+        response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Market data request failed: %s", exc)
+        return None
+
+
 def get_live_price(symbol: str):
 
     api_symbol = normalize_symbol(symbol)
 
-    url = "https://api.twelvedata.com/price"
+    data = _get(
+        "https://api.twelvedata.com/price",
+        {"symbol": api_symbol, "apikey": API_KEY},
+    )
 
-    params = {
-        "symbol": api_symbol,
-        "apikey": API_KEY
-    }
-
-    response = requests.get(url, params=params)
-    data = response.json()
-
-    print(data)
-
-    if "price" not in data:
+    if not data or "price" not in data:
         return None
 
     return {
@@ -56,21 +66,17 @@ def get_market_history(symbol: str):
 
     api_symbol = normalize_symbol(symbol)
 
-    url = "https://api.twelvedata.com/time_series"
+    data = _get(
+        "https://api.twelvedata.com/time_series",
+        {
+            "symbol": api_symbol,
+            "interval": "1day",
+            "outputsize": 100,
+            "apikey": API_KEY,
+        },
+    )
 
-    params = {
-        "symbol": api_symbol,
-        "interval": "1day",
-        "outputsize": 100,
-        "apikey": API_KEY
-    }
-
-    response = requests.get(url, params=params)
-    data = response.json()
-
-    print(data)
-
-    if "values" not in data:
+    if not data or "values" not in data:
         return None
 
     # TwelveData returns newest candles first.

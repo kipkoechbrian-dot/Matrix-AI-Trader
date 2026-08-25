@@ -1,16 +1,9 @@
-import { Box } from "@mui/material";
+import AppShell from "./AppShell";
 
+/**
+ * Kept for backward compatibility with existing imports —
+ * the real shell (navbar, ticker, footer) lives in AppShell.
+ */
 export default function DashboardLayout({ children }) {
-  return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        backgroundColor: "#0f172a",
-        color: "white",
-        padding: 3,
-      }}
-    >
-      {children}
-    </Box>
-  );
+  return <AppShell>{children}</AppShell>;
 }
