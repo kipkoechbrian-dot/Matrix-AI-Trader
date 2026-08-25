@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -11,46 +11,90 @@ import {
   Typography,
   ToggleButtonGroup,
   ToggleButton,
+  Chip,
+  Tooltip,
 } from "@mui/material";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { toast } from "react-toastify";
 import api from "../../services/api";
-import { getState, formatPrice, SYMBOLS } from "../../services/marketSim";
-import { subscribe } from "../../services/marketSim";
+import { getAISignal } from "../../services/tradeService";
+import { getState, formatPrice, SYMBOLS, subscribe, isRemoteMode } from "../../services/marketSim";
+
+const DECIMALS = { BTCUSD: 0, ETHUSD: 1, EURUSD: 5, GBPUSD: 5, USDJPY: 3, XAUUSD: 2, AAPL: 2, TSLA: 2 };
 
 export default function OpenTradeDialog({ open, handleClose, onOpened }) {
   const [symbol, setSymbol] = useState("BTCUSD");
   const [tradeType, setTradeType] = useState("BUY");
-  const [amount, setAmount] = useState("0.5");
-  const [entryPrice, setEntryPrice] = useState(getState("BTCUSD").price);
+  const [amount, setAmount] = useState("100");
+  const [mark, setMark] = useState(getState("BTCUSD").price);
+  const [stopLoss, setStopLoss] = useState("");
+  const [takeProfit, setTakeProfit] = useState("");
+  const [aiLevels, setAiLevels] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
-  // Keep the entry price aligned with the live simulated feed
+  const decimals = useMemo(() => DECIMALS[symbol] ?? 2, [symbol]);
+
+  // Keep the live mark in sync while the dialog is open
   useEffect(() => {
     if (!open) return undefined;
-    setEntryPrice(getState(symbol).price);
-    const unsub = subscribe(() => setEntryPrice(getState(symbol).price));
+    setMark(getState(symbol).price);
+    const unsub = subscribe(() => setMark(getState(symbol).price));
     return unsub;
   }, [symbol, open]);
 
+  useEffect(() => {
+    setAiLevels(null);
+  }, [symbol, tradeType]);
+
+  async function autofillAI() {
+    try {
+      setAiLoading(true);
+      const sig = await getAISignal(symbol);
+      setAiLevels(sig);
+      setStopLoss(String(sig.stop_loss));
+      setTakeProfit(String(sig.take_profit));
+      toast.info(
+        `AI suggests ${sig.signal} · confidence ${sig.confidence}% · R:R ${sig.risk_reward_ratio}`
+      );
+    } catch {
+      // Local heuristic fallback when the API is offline
+      const p = getState(symbol).price;
+      const sl = tradeType === "BUY" ? p * 0.99 : p * 1.01;
+      const tp = tradeType === "BUY" ? p * 1.02 : p * 0.98;
+      setStopLoss(sl.toFixed(decimals));
+      setTakeProfit(tp.toFixed(decimals));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   async function submit() {
     setSubmitting(true);
+    const payload = {
+      symbol,
+      trade_type: tradeType,
+      amount: Number(amount),
+      stop_loss: stopLoss ? Number(stopLoss) : null,
+      take_profit: takeProfit ? Number(takeProfit) : null,
+    };
+
     try {
-      await api.post("/trade/open", {
-        symbol,
-        trade_type: tradeType,
-        amount: Number(amount),
-        entry_price: Number(entryPrice),
-      });
-      toast.success(`${tradeType} ${amount} ${symbol} opened on the API`);
-      onOpened?.();
-      handleClose();
-    } catch {
-      // Backend offline -> simulate the fill so the demo flow continues
-      toast.info(
-        `Demo fill: ${tradeType} ${amount} ${symbol} @ ${formatPrice(entryPrice, 2)} (API offline)`
+      const { data } = await api.post("/trade/open", payload);
+      toast.success(
+        `${tradeType} ${symbol} opened @ ${formatPrice(data.trade.entry_price, decimals)} · balance $${data.wallet_balance.toFixed(2)}`
       );
       onOpened?.();
       handleClose();
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      if (detail) {
+        toast.error(detail);
+      } else if (isRemoteMode()) {
+        toast.error("Failed to open trade — check the API.");
+      } else {
+        toast.warning("API offline — start the backend to execute real trades.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -108,25 +152,70 @@ export default function OpenTradeDialog({ open, handleClose, onOpened }) {
             ))}
           </TextField>
 
+          <Stack direction="row" alignItems="center" justifyContent="space-between"
+            sx={{ px: 1.4, py: 1, borderRadius: "10px", border: "1px solid rgba(59,130,246,0.25)", background: "rgba(2,6,23,0.5)" }}
+          >
+            <Typography sx={{ fontSize: "0.72rem", color: "#8ba3cf", fontWeight: 700 }}>
+              LIVE MARK PRICE
+            </Typography>
+            <Typography sx={{ fontFamily: "monospace", fontWeight: 800, color: "#60a5fa" }}>
+              {formatPrice(mark, decimals)}
+            </Typography>
+          </Stack>
+
           <TextField
-            label="Amount / Size"
+            label="Stake (USD)"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            helperText="Margin reserved from your wallet. Max automatic loss: 50% of stake."
             inputProps={{ min: 0, step: "any" }}
           />
 
-          <TextField
-            label="Entry price (live)"
-            type="number"
-            value={entryPrice}
-            onChange={(e) => setEntryPrice(e.target.value)}
-            inputProps={{ step: "any" }}
-          />
+          <Stack direction="row" spacing={1.4}>
+            <TextField
+              label="Stop Loss"
+              type="number"
+              value={stopLoss}
+              onChange={(e) => setStopLoss(e.target.value)}
+              inputProps={{ step: "any" }}
+              fullWidth
+            />
+            <TextField
+              label="Take Profit"
+              type="number"
+              value={takeProfit}
+              onChange={(e) => setTakeProfit(e.target.value)}
+              inputProps={{ step: "any" }}
+              fullWidth
+            />
+          </Stack>
+
+          <Tooltip title="Ask the AI engine for entry levels (EMA + RSI + MACD analysis)">
+            <span>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<AutoAwesomeIcon />}
+                onClick={autofillAI}
+                disabled={aiLoading}
+              >
+                {aiLoading ? "Analyzing…" : "Autofill with AI levels"}
+              </Button>
+            </span>
+          </Tooltip>
+
+          {aiLevels && (
+            <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+              <Chip size="small" label={`Signal ${aiLevels.signal}`} sx={{ fontWeight: 800, color: "#22d3ee", border: "1px solid rgba(34,211,238,0.4)", background: "rgba(34,211,238,0.08)" }} />
+              <Chip size="small" label={`${aiLevels.confidence}% confidence`} sx={{ color: "#93c5fd", border: "1px solid rgba(59,130,246,0.3)" }} />
+              <Chip size="small" label={`R:R ${aiLevels.risk_reward_ratio}`} sx={{ color: "#93c5fd", border: "1px solid rgba(59,130,246,0.3)" }} />
+            </Stack>
+          )}
 
           <Typography sx={{ fontSize: "0.72rem", color: "#5b6e96" }}>
-            Entry tracks the live feed — fill executes at the API when online,
-            simulated otherwise.
+            Entry executes at the server's live price. The monitor auto-closes
+            at SL/TP — day and night.
           </Typography>
         </Stack>
       </DialogContent>
@@ -134,11 +223,7 @@ export default function OpenTradeDialog({ open, handleClose, onOpened }) {
         <Button onClick={handleClose} sx={{ color: "#8ba3cf" }}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          onClick={submit}
-          disabled={submitting || !amount}
-        >
+        <Button variant="contained" onClick={submit} disabled={submitting || !amount}>
           {submitting ? "Routing…" : `Open ${tradeType}`}
         </Button>
       </DialogActions>

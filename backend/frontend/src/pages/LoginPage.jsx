@@ -28,8 +28,10 @@ const FEATURES = [
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, loginDemo, user } = useContext(AuthContext);
+  const { login, register, loginDemo, user } = useContext(AuthContext);
 
+  const [mode, setMode] = useState("signin"); // signin | register
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -46,9 +48,34 @@ export default function LoginPage() {
       setError("");
       await login(email, password);
       navigate("/dashboard");
-    } catch {
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
       setError(
-        "Couldn't reach the trading API. Use the demo tour to explore the terminal."
+        detail ||
+          "Couldn't reach the trading API. Use the demo tour to explore the terminal."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    if (!username.trim()) {
+      setError("Pick a username first.");
+      return;
+    }
+    try {
+      setLoading(true);
+      setError("");
+      await register(username.trim(), email, password);
+      navigate("/dashboard");
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setError(
+        typeof detail === "string"
+          ? detail
+          : "Registration failed — is the API running?"
       );
     } finally {
       setLoading(false);
@@ -187,11 +214,55 @@ export default function LoginPage() {
               sx={{ position: "absolute", inset: 0, opacity: 0.5, pointerEvents: "none" }}
             />
             <Box sx={{ position: "relative" }}>
+              {/* mode toggle */}
+              <Stack
+                direction="row"
+                sx={{
+                  mb: 2.5,
+                  p: 0.4,
+                  borderRadius: "10px",
+                  background: "rgba(2,6,23,0.6)",
+                  border: "1px solid rgba(59,130,246,0.2)",
+                }}
+              >
+                {[
+                  ["signin", "Sign In"],
+                  ["register", "Create Account"],
+                ].map(([key, label]) => (
+                  <Box
+                    key={key}
+                    onClick={() => {
+                      setMode(key);
+                      setError("");
+                    }}
+                    sx={{
+                      flex: 1,
+                      textAlign: "center",
+                      py: 0.9,
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: 800,
+                      fontSize: "0.82rem",
+                      color: mode === key ? "#fff" : "#8ba3cf",
+                      background:
+                        mode === key
+                          ? "linear-gradient(135deg,#2563eb,#1d4ed8)"
+                          : "transparent",
+                      transition: "all 0.18s ease",
+                    }}
+                  >
+                    {label}
+                  </Box>
+                ))}
+              </Stack>
+
               <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                Welcome back
+                {mode === "signin" ? "Welcome back" : "Open your account"}
               </Typography>
               <Typography sx={{ color: "#8ba3cf", fontSize: "0.88rem", mt: 0.4, mb: 3 }}>
-                Sign in to your terminal — or take the guided demo.
+                {mode === "signin"
+                  ? "Sign in to your terminal — or take the guided demo."
+                  : "A wallet is created automatically — fund it and start trading."}
               </Typography>
 
               {error && (
@@ -208,7 +279,17 @@ export default function LoginPage() {
                 </Alert>
               )}
 
-              <form onSubmit={handleLogin}>
+              <form onSubmit={mode === "signin" ? handleLogin : handleRegister}>
+                {mode === "register" && (
+                  <TextField
+                    fullWidth
+                    label="Username"
+                    margin="normal"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                  />
+                )}
                 <TextField
                   fullWidth
                   label="Email"
@@ -224,7 +305,7 @@ export default function LoginPage() {
                   margin="normal"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 />
                 <Button
                   fullWidth
@@ -234,7 +315,11 @@ export default function LoginPage() {
                   disabled={loading}
                   sx={{ mt: 2.5, py: 1.4, fontSize: "0.95rem" }}
                 >
-                  {loading ? "Connecting…" : "Sign in to Terminal"}
+                  {loading
+                    ? "Connecting…"
+                    : mode === "signin"
+                      ? "Sign in to Terminal"
+                      : "Create Account & Fund Wallet"}
                 </Button>
               </form>
 

@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useSyncExternalStore } from "react";
 import {
   AppBar,
   Toolbar,
@@ -11,23 +11,38 @@ import {
   MenuItem,
   Avatar,
   Divider,
+  Tooltip,
 } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutlineOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import { useNavigate } from "react-router-dom";
 import Logo from "../components/brand/Logo";
 import TickerTape from "../components/dashboard/TickerTape";
+import FundWalletDialog from "../components/wallet/FundWalletDialog";
 import { AuthContext } from "../contexts/AuthContext";
-import { getEquityValue } from "../services/marketSim";
+import { DashboardContext } from "../contexts/DashboardContext";
+import {
+  getFeedStatus,
+  subscribeFeedStatus,
+} from "../services/remoteFeed";
 
 const NAV_ITEMS = ["Dashboard", "Markets", "Portfolio", "Signals", "Analytics"];
 
 export default function AppShell({ children }) {
-  const { user, logout, demoMode } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
+  const { dashboard, refreshDashboard } = useContext(DashboardContext);
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState(null);
   const [active, setActive] = useState("Dashboard");
+  const [fundOpen, setFundOpen] = useState(false);
+
+  const feedStatus = useSyncExternalStore(subscribeFeedStatus, getFeedStatus);
+
+  const signedIn = Boolean(user && !user.demo);
+  const hasWallet = signedIn && dashboard && !dashboard.fallback && dashboard.wallet_balance != null;
+  const balance = hasWallet ? dashboard.wallet_balance : null;
 
   function handleLogout() {
     setAnchor(null);
@@ -80,32 +95,47 @@ export default function AppShell({ children }) {
           <Box sx={{ flex: 1 }} />
 
           <Chip
-            label={demoMode ? "SIMULATED FEED" : "LIVE API"}
+            label={
+              feedStatus === "live"
+                ? "LIVE API"
+                : feedStatus === "offline"
+                  ? "SIMULATED FEED"
+                  : "CONNECTING…"
+            }
             size="small"
             sx={{
               fontWeight: 800,
               fontSize: "0.64rem",
               letterSpacing: "0.14em",
-              color: "#22d3ee",
-              border: "1px solid rgba(34,211,238,0.45)",
-              background: "rgba(34,211,238,0.07)",
+              color: feedStatus === "live" ? "#22d3ee" : "#fbbf24",
+              border: `1px solid ${feedStatus === "live" ? "rgba(34,211,238,0.45)" : "rgba(251,191,36,0.45)"}`,
+              background: feedStatus === "live" ? "rgba(34,211,238,0.07)" : "rgba(251,191,36,0.07)",
               animation: "pulseDot 2.2s infinite",
               display: { xs: "none", sm: "flex" },
             }}
           />
 
-          <Chip
-            label={`$${getEquityValue().toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-            size="small"
-            sx={{
-              fontFamily: "monospace",
-              fontWeight: 800,
-              color: "#e6efff",
-              border: "1px solid rgba(59,130,246,0.4)",
-              background: "rgba(37,99,235,0.14)",
-              display: { xs: "none", md: "flex" },
-            }}
-          />
+          {balance != null && (
+            <Tooltip title="Fund your wallet">
+              <Chip
+                icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 16, color: "#60a5fa !important" }} />}
+                label={`$${Number(balance).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                size="small"
+                onClick={() => setFundOpen(true)}
+                sx={{
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  fontWeight: 800,
+                  fontSize: "0.8rem",
+                  color: "#e6efff",
+                  border: "1px solid rgba(59,130,246,0.4)",
+                  background: "rgba(37,99,235,0.14)",
+                  display: { xs: "none", md: "flex" },
+                  "&:hover": { background: "rgba(37,99,235,0.3)" },
+                }}
+              />
+            </Tooltip>
+          )}
 
           <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ p: 0.4 }}>
             <Avatar
@@ -144,6 +174,17 @@ export default function AppShell({ children }) {
               </Typography>
             </Box>
             <Divider sx={{ borderColor: "rgba(59,130,246,0.14)" }} />
+            {signedIn && (
+              <MenuItem
+                sx={{ gap: 1.2, fontSize: "0.85rem" }}
+                onClick={() => {
+                  setAnchor(null);
+                  setFundOpen(true);
+                }}
+              >
+                <AccountBalanceWalletOutlinedIcon fontSize="small" /> Fund wallet
+              </MenuItem>
+            )}
             <MenuItem sx={{ gap: 1.2, fontSize: "0.85rem" }}>
               <PersonOutlineIcon fontSize="small" /> Profile
             </MenuItem>
@@ -183,10 +224,19 @@ export default function AppShell({ children }) {
         }}
       >
         <Typography sx={{ fontSize: "0.72rem", color: "#5b6e96" }}>
-          Matrix AI Trader — Intelligent trading terminal · Market data simulated
-          for demonstration
+          Matrix AI Trader — Intelligent trading terminal
+          {feedStatus === "live"
+            ? " · Connected to Matrix API (paper trading)"
+            : " · Market feed simulated — start the backend for full trading"}
         </Typography>
       </Box>
+
+      <FundWalletDialog
+        open={fundOpen}
+        handleClose={() => setFundOpen(false)}
+        balance={balance}
+        onChanged={refreshDashboard}
+      />
     </Box>
   );
 }

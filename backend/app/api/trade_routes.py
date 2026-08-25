@@ -11,6 +11,8 @@ from app.models.trade import Trade
 from app.models.wallet import Wallet
 from app.models.transaction import Transaction
 from app.services.market_service import get_live_price
+from app.services.trade_service import TradeService
+from app.services.risk_service import can_open_trade
 
 from app.schemas.trade import (
     OpenTradeRequest,
@@ -40,11 +42,16 @@ def open_trade(
             detail="Wallet not found."
         )
 
-    # Check wallet balance
+    # Risk engine gate (max open trades, daily loss limit, balance)
+    allowed, reason = can_open_trade(current_user, wallet, db)
+    if not allowed:
+        raise HTTPException(status_code=400, detail=reason)
+
+    # Check wallet balance covers the stake
     if wallet.balance < trade.amount:
         raise HTTPException(
             status_code=400,
-            detail="Insufficient wallet balance."
+            detail="Insufficient wallet balance — deposit funds first."
         )
 
     # -----------------------------
@@ -58,33 +65,36 @@ def open_trade(
             detail="Unable to fetch live market price."
         )
 
-    # Different providers return different keys
-    if isinstance(market, dict):
-        live_price = (
-            market.get("price")
-            or market.get("current_price")
-            or market.get("bid")
-            or market.get("close")
-        )
+    live_price = float(market["price"])
+
+    # Sanity-check stop loss / take profit against direction
+    trade_type = trade.trade_type.upper()
+    if trade_type == "BUY":
+        if trade.stop_loss and trade.stop_loss >= live_price:
+            raise HTTPException(400, "BUY stop loss must be below entry price.")
+        if trade.take_profit and trade.take_profit <= live_price:
+            raise HTTPException(400, "BUY take profit must be above entry price.")
+    elif trade_type == "SELL":
+        if trade.stop_loss and trade.stop_loss <= live_price:
+            raise HTTPException(400, "SELL stop loss must be above entry price.")
+        if trade.take_profit and trade.take_profit >= live_price:
+            raise HTTPException(400, "SELL take profit must be below entry price.")
     else:
-        live_price = market
+        raise HTTPException(400, "trade_type must be BUY or SELL.")
 
-    if live_price is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Live price unavailable."
-        )
-
-    # Deduct money
+    # Deduct stake from wallet (returned with P&L on close)
     wallet.balance -= trade.amount
 
-    # Create trade using LIVE price
+    # Create trade using LIVE price as the entry — never trust
+    # client-supplied prices
     new_trade = Trade(
         user_id=current_user.id,
-        symbol=trade.symbol.upper(),
-        trade_type=trade.trade_type.upper(),
+        symbol=trade.symbol.upper().replace("/", ""),
+        trade_type=trade_type,
         amount=trade.amount,
-        entry_price=float(live_price),
+        entry_price=live_price,
+        stop_loss=trade.stop_loss,
+        take_profit=trade.take_profit,
         status="OPEN"
     )
 
@@ -103,6 +113,8 @@ def open_trade(
             "type": new_trade.trade_type,
             "amount": new_trade.amount,
             "entry_price": new_trade.entry_price,
+            "stop_loss": new_trade.stop_loss,
+            "take_profit": new_trade.take_profit,
             "status": new_trade.status
         },
         "wallet_balance": wallet.balance
@@ -141,27 +153,14 @@ def close_trade(
             detail="Wallet not found."
         )
 
-    # Save exit price
-    trade.exit_price = trade_data.exit_price
-
-    # Calculate profit/loss
-    if trade.trade_type == "BUY":
-        profit = (
-            (trade.exit_price - trade.entry_price)
-            / trade.entry_price
-        ) * trade.amount
-    else:  # SELL
-        profit = (
-            (trade.entry_price - trade.exit_price)
-            / trade.entry_price
-        ) * trade.amount
-
-    trade.profit = round(profit, 2)
-    trade.status = "CLOSED"
-    trade.closed_at = datetime.utcnow()
-
-    # Return original stake + profit/loss
-    wallet.balance += trade.amount + trade.profit
+    # Settle through the shared service: P&L computed identically
+    # everywhere, wallet credited, notification emitted.
+    TradeService.close_trade(
+        db=db,
+        trade=trade,
+        current_price=trade_data.exit_price,
+        reason="MANUAL",
+    )
 
     db.commit()
     db.refresh(trade)
@@ -174,7 +173,8 @@ def close_trade(
         "trade": {
             "id": trade.id,
             "symbol": trade.symbol,
-            "status": trade.status
+            "status": trade.status,
+            "close_reason": trade.close_reason,
         }
     }
 
@@ -196,9 +196,12 @@ def get_trades(
             "trade_type": trade.trade_type,
             "amount": trade.amount,
             "entry_price": trade.entry_price,
+            "stop_loss": trade.stop_loss,
+            "take_profit": trade.take_profit,
             "exit_price": trade.exit_price,
             "profit": trade.profit,
             "status": trade.status,
+            "close_reason": trade.close_reason,
             "opened_at": trade.opened_at,
             "closed_at": trade.closed_at
         }
@@ -228,9 +231,12 @@ def get_trade(
         "trade_type": trade.trade_type,
         "amount": trade.amount,
         "entry_price": trade.entry_price,
+        "stop_loss": trade.stop_loss,
+        "take_profit": trade.take_profit,
         "exit_price": trade.exit_price,
         "profit": trade.profit,
         "status": trade.status,
+        "close_reason": trade.close_reason,
         "opened_at": trade.opened_at,
         "closed_at": trade.closed_at
     }
@@ -298,6 +304,27 @@ def dashboard(
         "total_withdrawals": withdrawals,
         "win_rate": round(win_rate, 2)
     }
+
+@router.get("/market/quotes")
+def market_quotes():
+    """Snapshot of every supported instrument — one call feeds
+    the entire watchlist / ticker."""
+    from app.services.market_provider import quotes
+    return quotes()
+
+
+@router.get("/market/{symbol}/candles")
+def market_candles(symbol: str, limit: int = 220):
+    """OHLC candle history for charting (ascending time)."""
+    from app.services.market_provider import candles
+    result = candles(symbol, min(limit, 300))
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Symbol not supported."
+        )
+    return result
+
 
 @router.get("/market/{symbol}")
 def market_price(symbol: str):

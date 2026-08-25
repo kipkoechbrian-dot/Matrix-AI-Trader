@@ -22,8 +22,12 @@ class Trade(Base):
     # BUY or SELL
 
     amount = Column(Float, nullable=False)
+    # stake in account currency (USD)
 
     entry_price = Column(Float, nullable=False)
+
+    stop_loss = Column(Float, nullable=True)
+    take_profit = Column(Float, nullable=True)
 
     confidence = Column(Integer, default=0)
 
@@ -37,6 +41,9 @@ class Trade(Base):
         String(20),
         default="OPEN"
     )
+
+    close_reason = Column(String(30), nullable=True)
+    # MANUAL / STOP_LOSS / TAKE_PROFIT / LIQUIDATION
 
     opened_at = Column(
         DateTime,

@@ -12,6 +12,11 @@ import "./index.css";
 import AuthProvider from "./contexts/AuthContext";
 import DashboardProvider from "./contexts/DashboardContext";
 import TradesProvider from "./contexts/TradesContext";
+import { startRemoteFeed } from "./services/remoteFeed";
+
+// Probe the backend market engine — flips the whole app to
+// LIVE (server truth) when reachable, simulated feed otherwise.
+startRemoteFeed();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

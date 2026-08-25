@@ -32,6 +32,13 @@ export default function DashboardProvider({ children }) {
 
   useEffect(() => {
     refreshDashboard();
+    // keep balances/navigation stats fresh while signed in
+    const timer = setInterval(() => {
+      if (localStorage.getItem("token")) {
+        refreshDashboard();
+      }
+    }, 5000);
+    return () => clearInterval(timer);
   }, [refreshDashboard]);
 
   return (

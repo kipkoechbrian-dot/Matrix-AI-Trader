@@ -38,6 +38,12 @@ export default function AuthProvider({ children }) {
     return response.data;
   }
 
+  async function register(username, email, password) {
+    // Create the account, then sign straight in with the new token.
+    await api.post("/register", { username, email, password });
+    return login(email, password);
+  }
+
   /**
    * One-click demo session — lets anyone (recruiters included)
    * explore the full terminal without a backend running.
@@ -55,7 +61,7 @@ export default function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ login, loginDemo, logout, user, setUser, demoMode }}
+      value={{ login, register, loginDemo, logout, user, setUser, demoMode }}
     >
       {children}
     </AuthContext.Provider>

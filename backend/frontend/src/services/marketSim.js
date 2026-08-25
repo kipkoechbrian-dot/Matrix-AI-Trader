@@ -133,8 +133,21 @@ function makeSymbolState(meta) {
 
   state.step = function step(nowSec) {
     this.prevPrice = this.price;
-    stepRegime();
-    this.price = nextPrice(this.price, this.vol, this.regime);
+
+    const remote = remoteMode ? remoteQuotes.get(meta.symbol) : null;
+
+    if (remote) {
+      // Backend is the market: mirror its price and history.
+      this.price = remote.price;
+      if (remote.spark?.length) {
+        this.spark = [...remote.spark];
+      }
+      this.remoteChangePct = remote.change_pct;
+    } else {
+      stepRegime();
+      this.price = nextPrice(this.price, this.vol, this.regime);
+      this.remoteChangePct = null;
+    }
 
     // live candle updates
     const c = this.currentCandle;
@@ -169,6 +182,33 @@ function makeSymbolState(meta) {
 
 const states = new Map();
 const listeners = new Set();
+
+// Remote (backend-driven) market mode: when the FastAPI server is
+// reachable, its market provider becomes the single source of truth —
+// trades, signals, charts and SL/TP monitor all see the SAME prices.
+// Local random walk remains as the offline demo fallback.
+let remoteMode = false;
+const remoteQuotes = new Map();   // symbol -> { price, change_pct, spark }
+const remoteCandles = new Map();  // symbol -> candles[]
+
+export function isRemoteMode() {
+  return remoteMode;
+}
+
+export function setRemoteMode(value) {
+  remoteMode = Boolean(value);
+}
+
+export function setRemoteQuotes(quotes) {
+  remoteQuotes.clear();
+  quotes.forEach((q) => {
+    remoteQuotes.set(q.symbol, q);
+  });
+}
+
+export function setRemoteCandles(symbol, candles) {
+  remoteCandles.set(symbol, candles);
+}
 
 // Demo portfolio — equity curve walks with a gentle positive drift
 const equity = [];
@@ -224,6 +264,11 @@ export function subscribe(fn) {
 
 export function getCandles(symbol) {
   const s = states.get(symbol) || states.get(SYMBOLS[0].symbol);
+
+  if (remoteMode && remoteCandles.has(s.symbol)) {
+    return [...remoteCandles.get(s.symbol), s.currentCandle];
+  }
+
   return [...s.candles, s.currentCandle];
 }
 
@@ -235,7 +280,9 @@ export function getState(symbol) {
     decimals: s.decimals,
     price: s.price,
     prevPrice: s.prevPrice,
-    changePct: ((s.price - s.open24) / s.open24) * 100,
+    changePct:
+      s.remoteChangePct ??
+      ((s.price - s.open24) / s.open24) * 100,
     spark: [...s.spark],
     regime: s.regime.name,
     candles: getCandles(symbol),
