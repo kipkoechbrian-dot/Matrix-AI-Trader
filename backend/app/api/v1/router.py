@@ -10,6 +10,7 @@ from app.api.dashboard_summary_routes import router as dashboard_summary_router
 from app.api.notification_routes import router as notification_router
 from app.api.websocket_routes import router as websocket_router
 from app.api.portfolio_routes import router as portfolio_router
+from app.api.payment_routes import router as payment_router
 
 
 api_router = APIRouter(
@@ -26,3 +27,4 @@ api_router.include_router(dashboard_summary_router)
 api_router.include_router(notification_router)
 api_router.include_router(portfolio_router)
 api_router.include_router(websocket_router)
+api_router.include_router(payment_router)

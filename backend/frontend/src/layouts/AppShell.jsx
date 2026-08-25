@@ -236,6 +236,7 @@ export default function AppShell({ children }) {
         handleClose={() => setFundOpen(false)}
         balance={balance}
         onChanged={refreshDashboard}
+        userEmail={user?.email}
       />
     </Box>
   );
