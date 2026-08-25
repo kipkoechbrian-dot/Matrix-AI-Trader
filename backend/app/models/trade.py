@@ -21,8 +21,6 @@ class Trade(Base):
     trade_type = Column(String(10), nullable=False)
     # BUY or SELL
 
-    trade_type = Column(String(10), nullable=False)
-
     amount = Column(Float, nullable=False)
 
     entry_price = Column(Float, nullable=False)
@@ -33,7 +31,6 @@ class Trade(Base):
 
     exit_price = Column(Float, nullable=True)
 
-    profit = Column(Float, default=0)
     profit = Column(Float, default=0)
 
     status = Column(
