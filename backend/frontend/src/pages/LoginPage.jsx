@@ -99,7 +99,9 @@ export default function LoginPage() {
           justifyContent: "space-between",
         }}
       >
-        <Logo size={36} />
+        <Box onClick={() => navigate("/")} sx={{ cursor: "pointer" }}>
+          <Logo size={36} />
+        </Box>
         <Typography
           sx={{
             fontSize: "0.7rem",
