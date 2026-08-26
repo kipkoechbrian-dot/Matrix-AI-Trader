@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from app.models.wallet import Wallet
 from app.schemas.user import UserRegister
 from app.authentication.security import hash_password, verify_password
 from app.authentication.auth import create_access_token
+from app.services.email_service import send_welcome_email
 
 
 router = APIRouter()
@@ -16,6 +17,7 @@ router = APIRouter()
 @router.post("/register")
 def register(
     user: UserRegister,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     # Check whether the email is already registered
@@ -54,6 +56,13 @@ def register(
     db.add(wallet)
     db.commit()
     db.refresh(wallet)
+
+    # Welcome email rides in the background — never blocks or breaks signup
+    background_tasks.add_task(
+        send_welcome_email,
+        new_user.email,
+        new_user.username,
+    )
 
     return {
         "message": "Registration successful!",

@@ -150,6 +150,11 @@ body {
   animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Nav-pill scroll targets land below the sticky navbar + ticker */
+[id^="section-"] {
+  scroll-margin-top: 120px;
+}
+
 /* Shared panel look for glass surfaces */
 .glass-panel {
   background: var(--panel);

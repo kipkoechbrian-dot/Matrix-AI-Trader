@@ -72,6 +72,7 @@ export default function DashboardPage() {
     <AppShell>
       {/* header row */}
       <Stack
+        id="section-overview"
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
         alignItems={{ xs: "flex-start", sm: "center" }}
@@ -134,6 +135,7 @@ export default function DashboardPage() {
 
       {/* live chart + watchlist */}
       <Box
+        id="section-markets"
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", lg: "2.1fr 1fr" },
@@ -157,6 +159,7 @@ export default function DashboardPage() {
 
       {/* AI signal + equity curve */}
       <Box
+        id="section-analytics"
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", lg: "1fr 1.6fr" },
@@ -166,7 +169,7 @@ export default function DashboardPage() {
         className="anim-fade-up"
         style={{ animationDelay: "300ms" }}
       >
-        <Box sx={{ minWidth: 0 }}>
+        <Box id="section-signals" sx={{ minWidth: 0 }}>
           <AISignalCard symbol={symbol} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
@@ -175,7 +178,7 @@ export default function DashboardPage() {
       </Box>
 
       {/* open positions */}
-      <Box className="anim-fade-up" style={{ animationDelay: "400ms" }}>
+      <Box id="section-portfolio" className="anim-fade-up" style={{ animationDelay: "400ms" }}>
         <TradeTable />
       </Box>
 

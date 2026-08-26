@@ -32,6 +32,15 @@ import {
 
 const NAV_ITEMS = ["Dashboard", "Markets", "Portfolio", "Signals", "Analytics"];
 
+// Each nav pill smooth-scrolls to its section of the terminal
+const NAV_TARGETS = {
+  Dashboard: "section-overview",
+  Markets: "section-markets",
+  Portfolio: "section-portfolio",
+  Signals: "section-signals",
+  Analytics: "section-analytics",
+};
+
 export default function AppShell({ children }) {
   const { user, logout } = useContext(AuthContext);
   const { dashboard, refreshDashboard } = useContext(DashboardContext);
@@ -52,6 +61,12 @@ export default function AppShell({ children }) {
     setAnchor(null);
     logout();
     navigate("/");
+  }
+
+  function handleNav(item) {
+    setActive(item);
+    const el = document.getElementById(NAV_TARGETS[item]);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -76,7 +91,7 @@ export default function AppShell({ children }) {
             {NAV_ITEMS.map((item) => (
               <Box
                 key={item}
-                onClick={() => setActive(item)}
+                onClick={() => handleNav(item)}
                 sx={{
                   px: 1.6,
                   py: 0.7,
