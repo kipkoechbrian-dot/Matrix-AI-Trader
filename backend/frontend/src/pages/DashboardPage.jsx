@@ -126,7 +126,9 @@ export default function DashboardPage() {
         }}
       >
         {stats.map((s, i) => (
-          <StatCard key={s.label} {...s} delay={i * 80} />
+          <Box key={s.label} sx={{ minWidth: 0 }}>
+            <StatCard {...s} delay={i * 80} />
+          </Box>
         ))}
       </Box>
 
@@ -141,12 +143,16 @@ export default function DashboardPage() {
         className="anim-fade-up"
         style={{ animationDelay: "200ms" }}
       >
-        <PriceChart
-          symbol={symbol}
-          onSymbolChange={setSymbol}
-          height={430}
-        />
-        <MarketWatchlist selected={symbol} onSelect={setSymbol} />
+        <Box sx={{ minWidth: 0 }}>
+          <PriceChart
+            symbol={symbol}
+            onSymbolChange={setSymbol}
+            height={430}
+          />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <MarketWatchlist selected={symbol} onSelect={setSymbol} />
+        </Box>
       </Box>
 
       {/* AI signal + equity curve */}
@@ -160,8 +166,12 @@ export default function DashboardPage() {
         className="anim-fade-up"
         style={{ animationDelay: "300ms" }}
       >
-        <AISignalCard symbol={symbol} />
-        <EquityCurve height={240} />
+        <Box sx={{ minWidth: 0 }}>
+          <AISignalCard symbol={symbol} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <EquityCurve height={240} />
+        </Box>
       </Box>
 
       {/* open positions */}

@@ -184,6 +184,8 @@ export default function PriceChart({
         height: "100%",
         display: "flex",
         flexDirection: "column",
+        minWidth: 0,
+        maxWidth: "100%",
       }}
     >
       <Stack
@@ -284,6 +286,9 @@ export default function PriceChart({
         ref={containerRef}
         sx={{
           flex: 1,
+          width: "100%",
+          minWidth: 0,
+          overflow: "hidden",
           minHeight: chartHeight,
           "& canvas": { borderRadius: "10px" },
         }}

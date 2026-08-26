@@ -253,7 +253,7 @@ function HeroSection() {
         }}
       >
         {/* left copy */}
-        <Box className="anim-fade-up">
+        <Box className="anim-fade-up" sx={{ minWidth: 0 }}>
           <Chip
             icon={<BoltIcon sx={{ fontSize: 16, color: "#22d3ee !important" }} />}
             label="PAPER-TRADING PLATFORM · FULL STACK"
@@ -332,7 +332,7 @@ function HeroSection() {
         </Box>
 
         {/* right — live terminal card */}
-        <Box sx={{ position: "relative" }} className="anim-fade-up" style={{ animationDelay: "140ms" }}>
+        <Box sx={{ position: "relative", minWidth: 0 }} className="anim-fade-up" style={{ animationDelay: "140ms" }}>
           <FloatCard
             icon={<NotificationsActiveOutlinedIcon />}
             title="Take profit hit"
@@ -352,6 +352,8 @@ function HeroSection() {
             sx={{
               p: 1.4,
               borderRadius: "20px",
+              maxWidth: "100%",
+              minWidth: 0,
               boxShadow: "0 40px 90px rgba(2,6,23,0.8), var(--glow)",
             }}
           >
