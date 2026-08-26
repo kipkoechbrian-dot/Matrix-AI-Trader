@@ -21,6 +21,8 @@ import { useNavigate } from "react-router-dom";
 import Logo from "../components/brand/Logo";
 import TickerTape from "../components/dashboard/TickerTape";
 import FundWalletDialog from "../components/wallet/FundWalletDialog";
+import ProfileDialog from "../components/dashboard/ProfileDialog";
+import SettingsDialog from "../components/dashboard/SettingsDialog";
 import { AuthContext } from "../contexts/AuthContext";
 import { DashboardContext } from "../contexts/DashboardContext";
 import {
@@ -37,6 +39,8 @@ export default function AppShell({ children }) {
   const [anchor, setAnchor] = useState(null);
   const [active, setActive] = useState("Dashboard");
   const [fundOpen, setFundOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const feedStatus = useSyncExternalStore(subscribeFeedStatus, getFeedStatus);
 
@@ -185,10 +189,22 @@ export default function AppShell({ children }) {
                 <AccountBalanceWalletOutlinedIcon fontSize="small" /> Fund wallet
               </MenuItem>
             )}
-            <MenuItem sx={{ gap: 1.2, fontSize: "0.85rem" }}>
+            <MenuItem
+              sx={{ gap: 1.2, fontSize: "0.85rem" }}
+              onClick={() => {
+                setAnchor(null);
+                setProfileOpen(true);
+              }}
+            >
               <PersonOutlineIcon fontSize="small" /> Profile
             </MenuItem>
-            <MenuItem sx={{ gap: 1.2, fontSize: "0.85rem" }}>
+            <MenuItem
+              sx={{ gap: 1.2, fontSize: "0.85rem" }}
+              onClick={() => {
+                setAnchor(null);
+                setSettingsOpen(true);
+              }}
+            >
               <SettingsOutlinedIcon fontSize="small" /> Settings
             </MenuItem>
             <Divider sx={{ borderColor: "rgba(59,130,246,0.14)" }} />
@@ -237,6 +253,30 @@ export default function AppShell({ children }) {
         balance={balance}
         onChanged={refreshDashboard}
         userEmail={user?.email}
+      />
+
+      <ProfileDialog
+        open={profileOpen}
+        handleClose={() => setProfileOpen(false)}
+        user={user}
+        dashboard={dashboard}
+        onFund={
+          signedIn
+            ? () => {
+                setProfileOpen(false);
+                setFundOpen(true);
+              }
+            : undefined
+        }
+        onLogout={() => {
+          setProfileOpen(false);
+          handleLogout();
+        }}
+      />
+
+      <SettingsDialog
+        open={settingsOpen}
+        handleClose={() => setSettingsOpen(false)}
       />
     </Box>
   );

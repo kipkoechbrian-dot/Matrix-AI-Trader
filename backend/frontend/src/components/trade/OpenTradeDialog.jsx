@@ -19,13 +19,28 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import { getAISignal } from "../../services/tradeService";
 import { getState, formatPrice, SYMBOLS, subscribe, isRemoteMode } from "../../services/marketSim";
+import { getSettings } from "../../services/settingsStore";
 
 const DECIMALS = { BTCUSD: 0, ETHUSD: 1, EURUSD: 5, GBPUSD: 5, USDJPY: 3, XAUUSD: 2, AAPL: 2, TSLA: 2 };
+
+// Protection levels suggested from saved user preferences —
+// computed fresh from the live price each time.
+function protectionDefaults(sym, type) {
+  const s = getSettings();
+  const p = getState(sym).price;
+  const dec = DECIMALS[sym] ?? 2;
+  const slPct = Number(s.defaultStopLossPct) / 100;
+  const tpPct = Number(s.defaultTakeProfitPct) / 100;
+  return {
+    sl: slPct > 0 ? (type === "BUY" ? p * (1 - slPct) : p * (1 + slPct)).toFixed(dec) : "",
+    tp: tpPct > 0 ? (type === "BUY" ? p * (1 + tpPct) : p * (1 - tpPct)).toFixed(dec) : "",
+  };
+}
 
 export default function OpenTradeDialog({ open, handleClose, onOpened }) {
   const [symbol, setSymbol] = useState("BTCUSD");
   const [tradeType, setTradeType] = useState("BUY");
-  const [amount, setAmount] = useState("100");
+  const [amount, setAmount] = useState(() => getSettings().defaultStake);
   const [mark, setMark] = useState(getState("BTCUSD").price);
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
@@ -43,9 +58,20 @@ export default function OpenTradeDialog({ open, handleClose, onOpened }) {
     return unsub;
   }, [symbol, open]);
 
+  // Fresh ticket on every open — honor the saved default stake
+  useEffect(() => {
+    if (open) setAmount(getSettings().defaultStake);
+  }, [open]);
+
+  // Prefill SL/TP from preferences as instrument/direction changes;
+  // the AI autofill can still overwrite these afterwards.
   useEffect(() => {
     setAiLevels(null);
-  }, [symbol, tradeType]);
+    if (!open) return;
+    const { sl, tp } = protectionDefaults(symbol, tradeType);
+    setStopLoss(sl);
+    setTakeProfit(tp);
+  }, [symbol, tradeType, open]);
 
   async function autofillAI() {
     try {

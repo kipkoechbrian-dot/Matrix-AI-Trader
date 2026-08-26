@@ -17,6 +17,7 @@ import { DashboardContext } from "../../contexts/DashboardContext";
 import { useDemoTrades, useSymbol } from "../../hooks/useMarket";
 import { formatPrice } from "../../services/marketSim";
 import { closeTrade } from "../../services/tradeService";
+import { getSettings } from "../../services/settingsStore";
 
 const DECIMALS = { BTCUSD: 0, ETHUSD: 1, EURUSD: 5, GBPUSD: 5, USDJPY: 3, XAUUSD: 2, AAPL: 2, TSLA: 2 };
 
@@ -73,6 +74,13 @@ function ApiOpenRow({ trade: t, onClosed }) {
   const winning = pnl >= 0;
 
   async function handleClose() {
+    if (getSettings().confirmClose) {
+      const ok = window.confirm(
+        `Close this ${t.symbol} ${t.trade_type} position now?\n` +
+          `Estimated result: ${pnl >= 0 ? "+" : "-"}$${Math.abs(pnl).toFixed(2)}`
+      );
+      if (!ok) return;
+    }
     setClosing(true);
     try {
       await closeTrade(t.id, mark);
